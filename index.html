@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 보이스 생성기</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0d1b2a; --bg-card:#1a2d42; --bg-input:#243650;
+  --gold:#D4A96A; --moon:#A8C4E8; --green:#7ec8a0; --red:#e07878;
+  --text:#e8e0d4; --muted:#8a9db5;
+  --border:rgba(168,196,232,0.15); --border-h:rgba(168,196,232,0.35);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;font-weight:300;min-height:100vh;padding:2.5rem 1rem 5rem;}
+.wrap{max-width:680px;margin:0 auto;}
+
+header{text-align:center;margin-bottom:2rem;}
+.logo{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:300;color:var(--gold);letter-spacing:0.1em;}
+.logo span{color:var(--moon);}
+.tagline{font-size:0.72rem;color:var(--muted);letter-spacing:0.22em;text-transform:uppercase;margin-top:0.3rem;}
+.hdivider{width:36px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:1rem auto;}
+
+.mode-tabs{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:1.5rem;}
+.mode-tab{padding:0.85rem 1rem;background:transparent;border:none;color:var(--muted);font-family:'Noto Sans KR',sans-serif;font-size:0.82rem;font-weight:400;cursor:pointer;transition:all 0.22s;letter-spacing:0.05em;display:flex;align-items:center;justify-content:center;gap:8px;}
+.mode-tab.active-m{background:rgba(212,169,106,0.08);color:var(--gold);}
+.mode-tab.active-y{background:rgba(168,196,232,0.08);color:var(--moon);}
+.mode-tab:first-child{border-right:1px solid var(--border);}
+
+.panel{display:none;} .panel.active{display:block;}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.4rem;margin-bottom:0.9rem;}
+.card-title{font-size:0.67rem;letter-spacing:0.22em;text-transform:uppercase;color:var(--muted);margin-bottom:1.1rem;}
+label{display:block;font-size:0.72rem;color:var(--muted);margin-bottom:0.38rem;letter-spacing:0.03em;}
+input[type="password"],select,textarea{width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:0.62rem 0.85rem;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:0.83rem;font-weight:300;outline:none;transition:border-color 0.18s;appearance:none;}
+input:focus,select:focus,textarea:focus{border-color:var(--border-h);}
+.field{margin-bottom:1rem;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+/* Voice grid */
+.voice-filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0.8rem;}
+.vf-btn{background:transparent;border:1px solid var(--border);border-radius:16px;padding:0.22rem 0.68rem;font-size:0.7rem;color:var(--muted);cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all 0.17s;}
+.vf-btn.active-m{border-color:var(--gold);color:var(--gold);}
+.vf-btn.active-y{border-color:var(--moon);color:var(--moon);}
+.voice-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(138px,1fr));gap:7px;margin-bottom:0.5rem;}
+.voice-card{background:var(--bg-input);border:1px solid var(--border);border-radius:9px;padding:0.6rem 0.7rem;cursor:pointer;transition:all 0.17s;position:relative;}
+.voice-card:hover{border-color:var(--border-h);}
+.voice-card.sel-m{border-color:var(--gold);background:rgba(212,169,106,0.06);}
+.voice-card.sel-y{border-color:var(--moon);background:rgba(168,196,232,0.06);}
+.vc-row{display:flex;align-items:center;gap:6px;margin-bottom:2px;}
+.vc-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.female .vc-dot{background:var(--moon);} .neutral .vc-dot{background:#9ab8a0;} .male .vc-dot{background:#9ab0c8;}
+.vc-name{font-size:0.8rem;font-weight:400;color:var(--text);}
+.vc-desc{font-size:0.66rem;color:var(--muted);line-height:1.35;}
+.sel-display{font-size:0.73rem;color:var(--gold);margin-top:0.5rem;min-height:1.1rem;}
+.sel-display-y{color:var(--moon);}
+
+/* Preview button on voice card */
+.preview-btn{position:absolute;top:6px;right:6px;background:transparent;border:none;cursor:pointer;font-size:0.7rem;color:var(--muted);padding:2px 4px;border-radius:4px;transition:color 0.15s;line-height:1;}
+.preview-btn:hover{color:var(--moon);}
+.preview-btn.playing{color:var(--green);}
+
+/* Byte meter */
+.byte-meter{margin-top:0.4rem;}
+.byte-bar-bg{height:3px;background:rgba(168,196,232,0.1);border-radius:2px;overflow:hidden;}
+.byte-bar{height:3px;border-radius:2px;transition:width 0.2s, background 0.2s;background:var(--moon);}
+.byte-bar.warn{background:var(--gold);}
+.byte-bar.over{background:var(--red);}
+.byte-info{display:flex;justify-content:space-between;font-size:0.68rem;color:var(--muted);margin-top:3px;}
+.byte-info span.over{color:var(--red);}
+
+/* Chips */
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0.7rem;}
+.chip{background:transparent;border:1px solid var(--border);border-radius:15px;padding:0.22rem 0.68rem;font-size:0.7rem;color:var(--muted);cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all 0.17s;}
+.chip:hover{border-color:var(--gold);color:var(--gold);}
+.chip-y:hover{border-color:var(--moon);color:var(--moon);}
+textarea.style-ta{min-height:75px;resize:vertical;line-height:1.7;font-size:0.81rem;}
+.tag-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:0.5rem;}
+.tag-chip{background:rgba(168,196,232,0.04);border:1px solid var(--border);border-radius:5px;padding:0.18rem 0.55rem;font-size:0.68rem;color:var(--muted);cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-style:italic;transition:all 0.15s;}
+.tag-chip:hover{border-color:var(--moon);color:var(--moon);}
+textarea.script-ta{min-height:160px;resize:vertical;line-height:1.85;}
+.sec-label{font-size:0.68rem;color:var(--muted);margin-bottom:0.45rem;letter-spacing:0.03em;}
+
+/* Genre */
+.yt-genre-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:0.5rem;}
+.genre-card{background:var(--bg-input);border:1px solid var(--border);border-radius:9px;padding:0.65rem 0.8rem;cursor:pointer;transition:all 0.17s;}
+.genre-card:hover{border-color:var(--border-h);}
+.genre-card.sel-g{border-color:var(--moon);background:rgba(168,196,232,0.06);}
+.gc-icon{font-size:1.2rem;margin-bottom:4px;}
+.gc-name{font-size:0.78rem;font-weight:400;color:var(--text);}
+.gc-desc{font-size:0.65rem;color:var(--muted);}
+
+/* Generate */
+.btn-gen{width:100%;padding:0.95rem;background:transparent;border:1px solid var(--gold);border-radius:10px;color:var(--gold);font-family:'Noto Sans KR',sans-serif;font-size:0.9rem;font-weight:400;letter-spacing:0.12em;cursor:pointer;transition:all 0.22s;margin-top:0.4rem;}
+.btn-gen:hover:not(:disabled){background:rgba(212,169,106,0.07);}
+.btn-gen-y{border-color:var(--moon);color:var(--moon);}
+.btn-gen-y:hover:not(:disabled){background:rgba(168,196,232,0.07);}
+.btn-gen:disabled{opacity:0.3;cursor:not-allowed;}
+.status{text-align:center;font-size:0.77rem;color:var(--muted);margin-top:0.8rem;min-height:1.1rem;letter-spacing:0.03em;}
+.status.err{color:var(--red);} .status.ok{color:var(--green);}
+
+.result-card{display:none;background:var(--bg-card);border:1px solid rgba(212,169,106,0.2);border-radius:12px;padding:1.4rem;margin-top:0.9rem;}
+.result-card-y{border-color:rgba(168,196,232,0.2);}
+audio{width:100%;margin:0.7rem 0;border-radius:5px;}
+.btn-dl{width:100%;padding:0.72rem;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'Noto Sans KR',sans-serif;font-size:0.8rem;font-weight:300;letter-spacing:0.07em;cursor:pointer;transition:all 0.18s;display:flex;align-items:center;justify-content:center;gap:7px;}
+.btn-dl:hover{border-color:var(--moon);color:var(--moon);}
+
+/* History */
+.history-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.4rem;margin-top:0.9rem;}
+.history-list{display:flex;flex-direction:column;gap:8px;margin-top:0.8rem;}
+.history-item{background:var(--bg-input);border:1px solid var(--border);border-radius:9px;padding:0.7rem 0.9rem;display:flex;align-items:center;gap:10px;}
+.hi-info{flex:1;min-width:0;}
+.hi-voice{font-size:0.75rem;font-weight:400;color:var(--text);}
+.hi-script{font-size:0.68rem;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hi-time{font-size:0.65rem;color:var(--muted);flex-shrink:0;}
+.hi-btns{display:flex;gap:6px;flex-shrink:0;}
+.hi-btn{background:transparent;border:1px solid var(--border);border-radius:6px;padding:0.2rem 0.5rem;font-size:0.68rem;color:var(--muted);cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all 0.15s;}
+.hi-btn:hover{border-color:var(--moon);color:var(--moon);}
+.hi-btn.del:hover{border-color:var(--red);color:var(--red);}
+.history-empty{font-size:0.75rem;color:var(--muted);text-align:center;padding:1rem 0;opacity:0.6;}
+.history-clear{background:transparent;border:none;font-size:0.68rem;color:var(--muted);cursor:pointer;font-family:'Noto Sans KR',sans-serif;float:right;transition:color 0.15s;}
+.history-clear:hover{color:var(--red);}
+
+.info-box{background:rgba(168,196,232,0.04);border:1px solid rgba(168,196,232,0.12);border-radius:8px;padding:0.65rem 0.9rem;font-size:0.74rem;color:var(--muted);line-height:1.75;margin-bottom:1rem;}
+.info-box a{color:var(--gold);text-decoration:none;}
+.tip{font-size:0.68rem;color:var(--muted);text-align:center;margin-top:2rem;line-height:1.9;opacity:0.5;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="logo">AI <span>Voice</span></div>
+  <div class="hdivider"></div>
+  <div class="tagline">Gemini TTS · 30 Voices · 한국어</div>
+</header>
+
+<div class="mode-tabs">
+  <button class="mode-tab active-m" id="tabM" onclick="switchMode('M')">🌙 명상 · 웰니스</button>
+  <button class="mode-tab" id="tabY" onclick="switchMode('Y')">▶ 유튜브 · 콘텐츠</button>
+</div>
+
+
+
+<!-- ══ MEDITATION ══ -->
+<div class="panel active" id="panelM">
+  <div class="card">
+    <div class="card-title">목소리 — 30종</div>
+    <div class="voice-filter" id="vfM">
+      <button class="vf-btn active-m" onclick="filterVoice('all','M',this)">전체</button>
+      <button class="vf-btn" onclick="filterVoice('female','M',this)">여성</button>
+      <button class="vf-btn" onclick="filterVoice('neutral','M',this)">중성</button>
+      <button class="vf-btn" onclick="filterVoice('male','M',this)">남성</button>
+    </div>
+    <div class="voice-grid" id="voiceGridM"></div>
+    <div class="sel-display" id="selDispM">선택됨: Kore — 차분하고 깊은</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">스타일 프롬프트</div>
+    <div class="sec-label">프리셋</div>
+    <div class="chips">
+      <button class="chip" onclick="setPrompt('M','meditation')">명상 기본</button>
+      <button class="chip" onclick="setPrompt('M','warm')">따뜻한 친구</button>
+      <button class="chip" onclick="setPrompt('M','whisper')">속삭임</button>
+      <button class="chip" onclick="setPrompt('M','guide')">안내 명상</button>
+      <button class="chip" onclick="setPrompt('M','sleep')">수면 유도</button>
+      <button class="chip" onclick="setPrompt('M','inquiry')">자기탐구</button>
+    </div>
+    <div class="field">
+      <label>톤 / 속도 / 감정 지시문</label>
+      <textarea class="style-ta" id="stylePM" oninput="updateBytes('M')"></textarea>
+    </div>
+    <div class="sec-label" style="margin-bottom:0.4rem;">인라인 태그</div>
+    <div class="tag-row">
+      <button class="tag-chip" onclick="insertTag('M','[whispers]')">[whispers]</button>
+      <button class="tag-chip" onclick="insertTag('M','[sighs]')">[sighs]</button>
+      <button class="tag-chip" onclick="insertTag('M','[pause]')">[pause]</button>
+      <button class="tag-chip" onclick="insertTag('M','[slowly]')">[slowly]</button>
+      <button class="tag-chip" onclick="insertTag('M','[gently]')">[gently]</button>
+      <button class="tag-chip" onclick="insertTag('M','[warmly]')">[warmly]</button>
+      <button class="tag-chip" onclick="insertTag('M','[softly]')">[softly]</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">스크립트</div>
+    <div class="chips">
+      <button class="chip" onclick="setScript('M','breath')">호흡 명상</button>
+      <button class="chip" onclick="setScript('M','body')">바디스캔</button>
+      <button class="chip" onclick="setScript('M','inquiry')">내면 탐구</button>
+      <button class="chip" onclick="setScript('M','joy')">설렘 탐구</button>
+      <button class="chip" onclick="setScript('M','sleep')">수면 유도</button>
+    </div>
+    <label>텍스트</label>
+    <textarea class="script-ta" id="scriptM" oninput="updateBytes('M')" placeholder="명상 스크립트를 입력하세요..."></textarea>
+    <div class="byte-meter">
+      <div class="byte-bar-bg"><div class="byte-bar" id="byteBarM" style="width:0%"></div></div>
+      <div class="byte-info">
+        <span id="byteTextM">0 / 8,000 bytes</span>
+        <span id="byteWarnM"></span>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-gen" id="genBtnM" onclick="generate('M')">▷ 음성 생성하기</button>
+  <div class="status" id="statusM"></div>
+  <div class="result-card" id="resultM">
+    <div class="card-title">생성 완료</div>
+    <audio id="playerM" controls></audio>
+    <button class="btn-dl" id="dlBtnM">↓ &nbsp;WAV 다운로드</button>
+  </div>
+</div>
+
+<!-- ══ YOUTUBE ══ -->
+<div class="panel" id="panelY">
+  <div class="card">
+    <div class="card-title">목소리 — 30종</div>
+    <div class="voice-filter" id="vfY">
+      <button class="vf-btn active-y" onclick="filterVoice('all','Y',this)">전체</button>
+      <button class="vf-btn" onclick="filterVoice('female','Y',this)">여성</button>
+      <button class="vf-btn" onclick="filterVoice('neutral','Y',this)">중성</button>
+      <button class="vf-btn" onclick="filterVoice('male','Y',this)">남성</button>
+    </div>
+    <div class="voice-grid" id="voiceGridY"></div>
+    <div class="sel-display sel-display-y" id="selDispY">선택됨: Aoede — 부드럽고 서정적</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">영상 장르</div>
+    <div class="yt-genre-grid" id="genreGrid"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">스타일 프롬프트</div>
+    <div class="sec-label">나레이션 스타일</div>
+    <div class="chips">
+      <button class="chip chip-y" onclick="setPrompt('Y','narration')">다큐 나레이션</button>
+      <button class="chip chip-y" onclick="setPrompt('Y','energetic')">활기찬 소개</button>
+      <button class="chip chip-y" onclick="setPrompt('Y','casual')">친근한 토크</button>
+      <button class="chip chip-y" onclick="setPrompt('Y','edu')">교육 강의</button>
+      <button class="chip chip-y" onclick="setPrompt('Y','review')">리뷰 / 언박싱</button>
+      <button class="chip chip-y" onclick="setPrompt('Y','story')">스토리텔링</button>
+      <button class="chip chip-y" onclick="setPrompt('Y','asmr')">ASMR</button>
+      <button class="chip chip-y" onclick="setPrompt('Y','news')">뉴스 / 정보</button>
+    </div>
+    <div class="field" style="margin-top:0.7rem;">
+      <label>스타일 지시문</label>
+      <textarea class="style-ta" id="stylePY" oninput="updateBytes('Y')"></textarea>
+    </div>
+    <div class="sec-label" style="margin-bottom:0.4rem;">인라인 태그</div>
+    <div class="tag-row">
+      <button class="tag-chip" onclick="insertTag('Y','[excitedly]')">[excitedly]</button>
+      <button class="tag-chip" onclick="insertTag('Y','[seriously]')">[seriously]</button>
+      <button class="tag-chip" onclick="insertTag('Y','[laughs]')">[laughs]</button>
+      <button class="tag-chip" onclick="insertTag('Y','[whispers]')">[whispers]</button>
+      <button class="tag-chip" onclick="insertTag('Y','[pause]')">[pause]</button>
+      <button class="tag-chip" onclick="insertTag('Y','[slowly]')">[slowly]</button>
+      <button class="tag-chip" onclick="insertTag('Y','[dramatically]')">[dramatically]</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">스크립트</div>
+    <div class="chips">
+      <button class="chip chip-y" onclick="setScript('Y','intro')">채널 인트로</button>
+      <button class="chip chip-y" onclick="setScript('Y','vlog')">브이로그</button>
+      <button class="chip chip-y" onclick="setScript('Y','edu')">교육 강의</button>
+      <button class="chip chip-y" onclick="setScript('Y','review')">제품 리뷰</button>
+      <button class="chip chip-y" onclick="setScript('Y','story')">스토리텔링</button>
+      <button class="chip chip-y" onclick="setScript('Y','outro')">아웃트로</button>
+    </div>
+    <label>텍스트</label>
+    <textarea class="script-ta" id="scriptY" oninput="updateBytes('Y')" placeholder="영상 스크립트를 입력하세요..."></textarea>
+    <div class="byte-meter">
+      <div class="byte-bar-bg"><div class="byte-bar" id="byteBarY" style="width:0%"></div></div>
+      <div class="byte-info">
+        <span id="byteTextY">0 / 8,000 bytes</span>
+        <span id="byteWarnY"></span>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-gen btn-gen-y" id="genBtnY" onclick="generate('Y')">▷ 음성 생성하기</button>
+  <div class="status" id="statusY"></div>
+  <div class="result-card result-card-y" id="resultY">
+    <div class="card-title">생성 완료</div>
+    <audio id="playerY" controls></audio>
+    <button class="btn-dl" id="dlBtnY">↓ &nbsp;WAV 다운로드</button>
+  </div>
+</div>
+
+<!-- ══ HISTORY ══ -->
+<div class="history-card" id="historyCard">
+  <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>최근 생성 기록</span>
+    <button class="history-clear" onclick="clearHistory()">전체 삭제</button>
+  </div>
+  <div class="history-list" id="historyList"></div>
+</div>
+
+<div class="tip">
+  생성된 WAV 파일을 영상 편집 툴 또는 GarageBand에서 바로 사용하세요.<br>
+  Powered by Google Gemini TTS
+</div>
+</div>
+
+<script>
+// ── Worker URL ───────────────────────────────────────
+const WORKER_URL = 'https://odd-dew-303b.sj2550821.workers.dev';
+
+// ── 데이터 ────────────────────────────────────────────
+const VOICES=[
+  {name:'Kore',gender:'female',desc:'차분하고 깊은'},
+  {name:'Aoede',gender:'female',desc:'부드럽고 서정적'},
+  {name:'Leda',gender:'female',desc:'맑고 온화함'},
+  {name:'Despina',gender:'female',desc:'따뜻하고 친근함'},
+  {name:'Erinome',gender:'female',desc:'섬세하고 감성적'},
+  {name:'Zephyr',gender:'female',desc:'밝고 자연스러움'},
+  {name:'Vindemiatrix',gender:'female',desc:'우아하고 차분함'},
+  {name:'Sulafar',gender:'female',desc:'따뜻하고 포근함'},
+  {name:'Callirhoe',gender:'female',desc:'흐르듯 유연함'},
+  {name:'Autonoe',gender:'female',desc:'청명하고 맑음'},
+  {name:'Laomedeia',gender:'female',desc:'섬세하고 조용함'},
+  {name:'Pulcherrima',gender:'female',desc:'아름답고 우아함'},
+  {name:'Sadachbia',gender:'neutral',desc:'중성적이고 차분함'},
+  {name:'Achernar',gender:'neutral',desc:'깨끗하고 명료함'},
+  {name:'Achird',gender:'neutral',desc:'부드럽고 균형잡힘'},
+  {name:'Algenib',gender:'neutral',desc:'안정적이고 신뢰감'},
+  {name:'Algieba',gender:'neutral',desc:'따뜻하고 중립적'},
+  {name:'Alnilam',gender:'neutral',desc:'맑고 중성적'},
+  {name:'Gacrux',gender:'neutral',desc:'차분하고 깊음'},
+  {name:'Rasalgethi',gender:'neutral',desc:'풍부하고 표현적'},
+  {name:'Sadaltager',gender:'neutral',desc:'온화하고 안정적'},
+  {name:'Schedar',gender:'neutral',desc:'부드럽고 서정적'},
+  {name:'Zubenelgenubi',gender:'neutral',desc:'깊고 명상적'},
+  {name:'Puck',gender:'male',desc:'생기있고 친근함'},
+  {name:'Charon',gender:'male',desc:'낮고 안정적'},
+  {name:'Fenrir',gender:'male',desc:'깊고 묵직함'},
+  {name:'Orus',gender:'male',desc:'차분하고 신뢰감'},
+  {name:'Iapetus',gender:'male',desc:'낮고 서정적'},
+  {name:'Umbriel',gender:'male',desc:'깊고 풍부함'},
+  {name:'Enceladus',gender:'male',desc:'맑고 강인함'},
+];
+
+const GENRES=[
+  {id:'vlog',icon:'🎬',name:'브이로그',desc:'일상 / 여행'},
+  {id:'edu',icon:'📚',name:'교육',desc:'강의 / 설명'},
+  {id:'review',icon:'⭐',name:'리뷰',desc:'제품 / 서비스'},
+  {id:'news',icon:'📰',name:'뉴스 / 정보',desc:'이슈 / 팩트'},
+  {id:'story',icon:'✨',name:'스토리텔링',desc:'감성 / 에세이'},
+  {id:'game',icon:'🎮',name:'게임',desc:'플레이 / 공략'},
+  {id:'cook',icon:'🍳',name:'요리 / 라이프',desc:'레시피 / 일상'},
+  {id:'fitness',icon:'💪',name:'운동 / 건강',desc:'피트니스 / 웰빙'},
+];
+
+const PROMPTS={
+  M:{
+    meditation:'다정하고 부드러운 친구가 곁에서 조용히 들려주는 목소리로 말해주세요. 아주 따뜻하고 감정적인 톤으로 천천히 읽어주세요.',
+    warm:'마치 오래된 친구가 따뜻하게 안아주듯, 포근하고 다정한 목소리로 천천히 읽어주세요. 각 문장 사이에 여유로운 침묵을 두세요.',
+    whisper:'속삭이듯 아주 조용하고 가깝게, 귓가에 살며시 말해주듯 읽어주세요. 매우 천천히, 거의 숨결처럼.',
+    guide:'명상 안내자처럼 차분하고 명료하게, 따뜻하지만 집중감 있는 톤으로 읽어주세요.',
+    sleep:'잠드는 아이에게 자장가를 불러주듯, 아주 느리고 나른하게, 점점 더 조용해지는 목소리로 읽어주세요.',
+    inquiry:'내면을 들여다보도록 이끄는 철학적인 안내자처럼, 조용하고 사색적인 톤으로 천천히, 각 질문 뒤에 충분한 침묵을 두며 읽어주세요.',
+  },
+  Y:{
+    narration:'다큐멘터리 나레이터처럼 차분하고 신뢰감 있게, 적절한 강약을 주며 명확하게 읽어주세요.',
+    energetic:'활기차고 자신감 넘치는 목소리로, 시청자를 끌어당기는 에너지감 있게 읽어주세요.',
+    casual:'친한 친구에게 이야기하듯 편안하고 자연스럽게, 너무 격식 없이 친근하게 읽어주세요.',
+    edu:'교사가 학생에게 설명하듯 명료하고 이해하기 쉽게, 중요한 포인트에서 강조하며 읽어주세요.',
+    review:'솔직하고 생생한 리뷰어처럼 열정적으로, 장단점을 균형 있게 전달하며 읽어주세요.',
+    story:'감성적인 스토리텔러처럼 이야기에 감정을 담아, 장면이 눈에 그려지도록 생동감 있게 읽어주세요.',
+    asmr:'매우 조용하고 부드럽게, ASMR처럼 속삭이듯 천천히, 편안한 분위기로 읽어주세요.',
+    news:'뉴스 앵커처럼 명확하고 공정하게, 정확한 발음으로 적절한 속도로 읽어주세요.',
+  }
+};
+
+const SCRIPTS={
+  M:{
+    breath:`편안한 자세로 앉아 눈을 부드럽게 감으세요.\n\n[slowly] 천천히 숨을 들이쉬고...\n\n잠시 멈추고...\n\n[gently] 천천히 내쉬세요.\n\n숨이 들어오고 나가는 것을 그냥 느껴보세요.\n\n지금 이 순간, 당신의 호흡이 당신을 지금 여기로 데려옵니다.\n\n들이쉬고... 내쉬고...\n\n모든 것이 괜찮습니다.`,
+    body:`편안하게 누워 눈을 감으세요.\n\n발끝부터 천천히 주의를 가져가봅니다.\n\n[slowly] 발... 종아리... 무릎...\n\n긴장을 느끼는 곳이 있다면 그냥 알아차리세요.\n\n[gently] 배... 가슴... 어깨...\n\n어깨의 무게를 바닥에 내려놓으세요.\n\n머리... 얼굴... 눈...\n\n[softly] 온몸이 부드럽게 이완됩니다.`,
+    inquiry:`지금 이 순간, 무엇이 느껴지나요?\n\n[pause] 그 느낌을 판단하지 말고 그냥 바라보세요.\n\n이 감정은 어디에 있나요? 어떤 모양인가요?\n\n[slowly] 그것이 사실인가요? 정말로 확실한가요?\n\n[pause] 그 생각 없이, 지금 이 순간은 어떤가요?\n\n천천히 호흡하며 내면을 바라봅니다.`,
+    joy:`오늘 하루 중, 아주 작은 것이라도 좋아요.\n\n[warmly] 마음이 살짝 설레거나 따뜻해진 순간이 있었나요?\n\n그 순간을 천천히 떠올려보세요.\n\n어디에 있었나요? 무엇을 느꼈나요?\n\n[gently] 그 느낌을 지금 다시 몸으로 느껴보세요.\n\n작은 기쁨은 언제나 여기 있습니다.`,
+    sleep:`[slowly] 이제 모든 것을 내려놓을 시간이에요.\n\n눈을 감고, 몸의 무게를 느껴보세요.\n\n[whispers] 오늘 하루도 수고했어요.\n\n이제 쉬어도 됩니다.\n\n[slowly] 숨을 들이쉬고... 내쉬고...\n\n몸이 점점 무거워지고, 따뜻해집니다.\n\n[whispers] 편안하게, 깊은 잠 속으로...`,
+  },
+  Y:{
+    intro:`안녕하세요! [excitedly] 오늘도 채널을 찾아와 주셔서 감사해요.\n\n이 채널에서는 매주 여러분의 일상을 더 풍요롭게 만들어줄 콘텐츠를 올리고 있어요.\n\n[warmly] 아직 구독 안 하셨다면 지금 바로 구독 버튼 눌러주세요!\n\n그럼 오늘 영상 시작할게요.`,
+    vlog:`오늘은 정말 [excitedly] 특별한 하루였어요.\n\n아침 일찍 일어나서 카페에 갔는데, 창가 자리에 앉아서 커피 한 잔 마시는 그 순간이 너무 좋았거든요.\n\n[slowly] 가끔은 이런 소소한 순간들이 하루를 완전히 바꿔놓더라고요.\n\n여러분도 오늘 이런 순간 있으셨나요?`,
+    edu:`오늘은 [seriously] 많은 분들이 헷갈려하시는 개념을 쉽게 설명해드릴게요.\n\n핵심은 딱 세 가지예요.\n\n첫 번째, [pause] 기초를 탄탄하게 잡는 것.\n두 번째, 꾸준히 반복하는 것.\n세 번째, [excitedly] 실제로 적용해보는 것!\n\n이 세 가지만 기억하시면 됩니다.`,
+    review:`오늘 [excitedly] 드디어 열어봤습니다!\n\n솔직히 기대를 많이 했는데요.\n\n[pause] 첫 느낌은... 생각보다 훨씬 좋았어요.\n\n디자인도 깔끔하고, 퀄리티도 가격 대비 정말 괜찮았거든요.\n\n[seriously] 단점이 없는 건 아닌데, 그건 영상 후반부에 솔직하게 말씀드릴게요.`,
+    story:`[slowly] 3년 전 이맘때였어요.\n\n아무것도 없이 빈손으로 시작했던 그 날을 아직도 기억해요.\n\n두려웠죠. [pause] 정말 많이.\n\n하지만 [warmly] 그 두려움이 오히려 저를 여기까지 데려다준 것 같아요.\n\n오늘은 그 이야기를 해드리려고 해요.`,
+    outro:`오늘 영상 어떠셨나요?\n\n[warmly] 도움이 되셨다면 좋아요와 구독 부탁드려요!\n\n댓글로 여러분의 생각도 꼭 남겨주세요. 하나하나 다 읽고 있어요.\n\n[excitedly] 다음 영상에서 또 만나요. 안녕!`,
+  }
+};
+
+// ── 상태 ──────────────────────────────────────────────
+let selVoice={M:'Kore',Y:'Aoede'};
+let curFilter={M:'all',Y:'all'};
+let selGenre='';
+let previewAudio=null;
+let previewBtn=null;
+
+// ── 모드 전환 ─────────────────────────────────────────
+function switchMode(m){
+  document.getElementById('panelM').classList.toggle('active',m==='M');
+  document.getElementById('panelY').classList.toggle('active',m==='Y');
+  document.getElementById('tabM').className='mode-tab'+(m==='M'?' active-m':'');
+  document.getElementById('tabY').className='mode-tab'+(m==='Y'?' active-y':'');
+}
+
+// ── 목소리 렌더 ───────────────────────────────────────
+function renderVoices(filter,mode){
+  const sc=mode==='M'?'sel-m':'sel-y';
+  const sv=selVoice[mode];
+  const list=filter==='all'?VOICES:VOICES.filter(v=>v.gender===filter);
+  document.getElementById('voiceGrid'+mode).innerHTML=list.map(v=>`
+    <div class="voice-card ${v.gender} ${v.name===sv?sc:''}" onclick="selectVoice('${v.name}','${mode}',this)">
+      <button class="preview-btn" onclick="event.stopPropagation();previewVoice('${v.name}','${mode}',this)" title="미리듣기">▶</button>
+      <div class="vc-row"><div class="vc-dot"></div><div class="vc-name">${v.name}</div></div>
+      <div class="vc-desc">${v.desc}</div>
+    </div>
+  `).join('');
+}
+
+function selectVoice(name,mode,el){
+  const sc=mode==='M'?'sel-m':'sel-y';
+  selVoice[mode]=name;
+  document.getElementById('voiceGrid'+mode).querySelectorAll('.voice-card').forEach(c=>c.classList.remove('sel-m','sel-y'));
+  el.classList.add(sc);
+  const v=VOICES.find(v=>v.name===name);
+  document.getElementById('selDisp'+mode).textContent=`선택됨: ${name} — ${v.desc}`;
+}
+
+function filterVoice(filter,mode,btn){
+  curFilter[mode]=filter;
+  const ac=mode==='M'?'active-m':'active-y';
+  document.getElementById('vf'+mode).querySelectorAll('.vf-btn').forEach(b=>b.classList.remove('active-m','active-y'));
+  btn.classList.add(ac);
+  renderVoices(filter,mode);
+}
+
+// ── 목소리 미리듣기 ───────────────────────────────────
+const PREVIEW_TEXT='안녕하세요. 저는 이런 목소리예요.';
+
+async function previewVoice(name,mode,btn){
+
+
+  // 재생 중이면 정지
+  if(previewAudio&&!previewAudio.paused){
+    previewAudio.pause();
+    if(previewBtn){previewBtn.textContent='▶';previewBtn.classList.remove('playing');}
+    if(previewBtn===btn){previewAudio=null;previewBtn=null;return;}
+  }
+
+  btn.textContent='…';
+  btn.classList.add('playing');
+
+  try{
+    const res=await fetch(
+      WORKER_URL,
+      {method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({
+         contents:[{parts:[{text:PREVIEW_TEXT}]}],
+         generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:name}}}}
+       })}
+    );
+    const data=await res.json();
+    const audioData=data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if(!audioData)throw new Error('no audio');
+    const bin=atob(audioData),buf=new ArrayBuffer(bin.length),pv=new Uint8Array(buf);
+    for(let i=0;i<bin.length;i++)pv[i]=bin.charCodeAt(i);
+    const url=URL.createObjectURL(pcmToWav(buf));
+    previewAudio=new Audio(url);
+    previewBtn=btn;
+    btn.textContent='■';
+    previewAudio.play();
+    previewAudio.onended=()=>{btn.textContent='▶';btn.classList.remove('playing');previewAudio=null;previewBtn=null;};
+  }catch(e){
+    btn.textContent='▶';btn.classList.remove('playing');
+  }
+}
+
+// ── 바이트 미터 ───────────────────────────────────────
+function getBytes(mode){
+  const script=document.getElementById('script'+mode).value;
+  const style=document.getElementById('styleP'+mode).value;
+  return new TextEncoder().encode(script+style).length;
+}
+
+function updateBytes(mode){
+  const bytes=getBytes(mode);
+  const pct=Math.min(bytes/8000*100,100);
+  const bar=document.getElementById('byteBar'+mode);
+  const txt=document.getElementById('byteText'+mode);
+  const warn=document.getElementById('byteWarn'+mode);
+  bar.style.width=pct+'%';
+  bar.className='byte-bar'+(bytes>7500?' over':bytes>6000?' warn':'');
+  txt.textContent=`${bytes.toLocaleString()} / 8,000 bytes`;
+  txt.className=bytes>8000?'over':'';
+  warn.textContent=bytes>8000?'⚠ 한도 초과 — 스크립트를 줄여주세요':bytes>7500?'주의: 한도에 근접했어요':'';
+  warn.style.color=bytes>8000?'var(--red)':'var(--gold)';
+}
+
+// ── 장르 ─────────────────────────────────────────────
+function renderGenres(){
+  document.getElementById('genreGrid').innerHTML=GENRES.map(g=>`
+    <div class="genre-card ${g.id===selGenre?'sel-g':''}" onclick="selectGenre('${g.id}',this)">
+      <div class="gc-icon">${g.icon}</div>
+      <div class="gc-name">${g.name}</div>
+      <div class="gc-desc">${g.desc}</div>
+    </div>
+  `).join('');
+}
+
+function selectGenre(id,el){
+  selGenre=id;
+  document.querySelectorAll('.genre-card').forEach(c=>c.classList.remove('sel-g'));
+  el.classList.add('sel-g');
+  const map={vlog:'casual',edu:'edu',review:'review',news:'news',story:'story',game:'energetic',cook:'casual',fitness:'energetic'};
+  if(map[id])setPrompt('Y',map[id]);
+}
+
+// ── 프롬프트 / 스크립트 ───────────────────────────────
+function setPrompt(mode,k){document.getElementById('styleP'+mode).value=PROMPTS[mode][k];updateBytes(mode);}
+function setScript(mode,k){document.getElementById('script'+mode).value=SCRIPTS[mode][k];updateBytes(mode);}
+function insertTag(mode,tag){
+  const ta=document.getElementById('script'+mode);
+  const s=ta.selectionStart,e=ta.selectionEnd;
+  ta.value=ta.value.slice(0,s)+tag+' '+ta.value.slice(e);
+  ta.selectionStart=ta.selectionEnd=s+tag.length+1;
+  ta.focus();updateBytes(mode);
+}
+
+// ── PCM → WAV ─────────────────────────────────────────
+function pcmToWav(pcmData,sr=24000){
+  const nc=1,bps=16,br=sr*nc*bps/8,ba=nc*bps/8,ds=pcmData.byteLength;
+  const buf=new ArrayBuffer(44+ds),v=new DataView(buf);
+  const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i));};
+  w(0,'RIFF');v.setUint32(4,36+ds,true);w(8,'WAVE');w(12,'fmt ');
+  v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,nc,true);
+  v.setUint32(24,sr,true);v.setUint32(28,br,true);v.setUint16(32,ba,true);
+  v.setUint16(34,bps,true);w(36,'data');v.setUint32(40,ds,true);
+  new Uint8Array(buf,44).set(new Uint8Array(pcmData));
+  return new Blob([buf],{type:'audio/wav'});
+}
+
+// ── 생성 기록 ─────────────────────────────────────────
+const HISTORY_KEY='aivoice_history';
+const MAX_HISTORY=5;
+
+function loadHistory(){return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');}
+function saveHistory(list){localStorage.setItem(HISTORY_KEY,JSON.stringify(list));}
+
+function addHistory(mode,voice,script,url){
+  const list=loadHistory();
+  list.unshift({id:Date.now(),mode,voice,script:script.slice(0,80),url,time:new Date().toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})});
+  if(list.length>MAX_HISTORY)list.pop();
+  saveHistory(list);
+  renderHistory();
+}
+
+function renderHistory(){
+  const list=loadHistory();
+  const el=document.getElementById('historyList');
+  if(!list.length){el.innerHTML='<div class="history-empty">아직 생성 기록이 없어요</div>';return;}
+  el.innerHTML=list.map(h=>`
+    <div class="history-item" id="hi${h.id}">
+      <div class="hi-info">
+        <div class="hi-voice">${h.mode==='M'?'🌙':'▶'} ${h.voice}</div>
+        <div class="hi-script">${h.script}${h.script.length>=80?'...':''}</div>
+      </div>
+      <div class="hi-time">${h.time}</div>
+      <div class="hi-btns">
+        <button class="hi-btn" onclick="replayHistory('${h.id}')">▶ 재생</button>
+        <button class="hi-btn del" onclick="deleteHistory(${h.id})">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function replayHistory(id){
+  const list=loadHistory();
+  const h=list.find(h=>h.id==id);
+  if(!h||!h.url)return;
+  const playerId=h.mode==='M'?'playerM':'playerY';
+  const resultId='result'+h.mode;
+  document.getElementById(playerId).src=h.url;
+  document.getElementById(resultId).style.display='block';
+  document.getElementById(playerId).play();
+  switchMode(h.mode);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function deleteHistory(id){
+  const list=loadHistory().filter(h=>h.id!==id);
+  saveHistory(list);renderHistory();
+}
+
+function clearHistory(){
+  saveHistory([]);renderHistory();
+}
+
+// ── 생성 ─────────────────────────────────────────────
+async function generate(mode){
+  const script=document.getElementById('script'+mode).value.trim();
+  const styleP=document.getElementById('styleP'+mode).value.trim();
+  const voice=selVoice[mode];
+  if(!script){setStatus(mode,'스크립트를 입력해주세요.','err');return;}
+  if(getBytes(mode)>8000){setStatus(mode,'스크립트가 너무 길어요. 8,000 bytes 이하로 줄여주세요.','err');return;}
+
+  const btn=document.getElementById('genBtn'+mode);
+  btn.disabled=true;
+  setStatus(mode,'생성 중... 잠시만 기다려주세요.','');
+
+  const fullText=styleP?styleP+'\n\n'+script:script;
+  try{
+    const res=await fetch(
+      WORKER_URL,
+      {method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({
+         contents:[{parts:[{text:fullText}]}],
+         generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:voice}}}}
+       })}
+    );
+    if(!res.ok){const e=await res.json();throw new Error(e.error?.message||'오류');}
+    const data=await res.json();
+    const audioData=data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if(!audioData)throw new Error('오디오 데이터를 받지 못했습니다.');
+
+    const bin=atob(audioData),pcmBuf=new ArrayBuffer(bin.length),pv=new Uint8Array(pcmBuf);
+    for(let i=0;i<bin.length;i++)pv[i]=bin.charCodeAt(i);
+    const url=URL.createObjectURL(pcmToWav(pcmBuf));
+
+    document.getElementById('player'+mode).src=url;
+    document.getElementById('dlBtn'+mode).onclick=()=>{
+      const a=document.createElement('a');a.href=url;
+      a.download=`voice_${voice}_${new Date().toISOString().slice(0,10)}.wav`;a.click();
+    };
+    document.getElementById('result'+mode).style.display='block';
+    setStatus(mode,`완료! 목소리: ${voice}`,'ok');
+    addHistory(mode,voice,script,url);
+  }catch(e){
+    setStatus(mode,'오류: '+e.message,'err');
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+function setStatus(mode,msg,type){
+  const el=document.getElementById('status'+mode);
+  el.textContent=msg;el.className='status'+(type?' '+type:'');
+}
+
+// ── 초기화 ────────────────────────────────────────────
+renderVoices('all','M');
+renderVoices('all','Y');
+renderGenres();
+setPrompt('M','meditation');
+setPrompt('Y','narration');
+renderHistory();
+</script>
+</body>
+</html>
