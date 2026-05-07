@@ -448,7 +448,7 @@ function previewVoice(name,mode,btn){
     if(previewBtn===btn){previewAudio=null;previewBtn=null;return;}
   }
 
-  const url=`samples/${name}.wav`;
+  const url=`${name}.wav`;
   previewAudio=new Audio(url);
   previewBtn=btn;
   btn.textContent='…';
