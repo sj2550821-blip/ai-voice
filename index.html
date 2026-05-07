@@ -439,12 +439,8 @@ function filterVoice(filter,mode,btn){
   renderVoices(filter,mode);
 }
 
-// ── 목소리 미리듣기 ───────────────────────────────────
-const PREVIEW_TEXT='안녕하세요. 저는 이런 목소리예요.';
-
-async function previewVoice(name,mode,btn){
-
-
+// ── 목소리 미리듣기 (샘플 파일) ──────────────────────
+function previewVoice(name,mode,btn){
   // 재생 중이면 정지
   if(previewAudio&&!previewAudio.paused){
     previewAudio.pause();
@@ -452,32 +448,25 @@ async function previewVoice(name,mode,btn){
     if(previewBtn===btn){previewAudio=null;previewBtn=null;return;}
   }
 
+  const url=`samples/${name}.wav`;
+  previewAudio=new Audio(url);
+  previewBtn=btn;
   btn.textContent='…';
-  btn.classList.add('playing');
 
-  try{
-    const res=await fetch(
-      WORKER_URL,
-      {method:'POST',headers:{'Content-Type':'application/json'},
-       body:JSON.stringify({
-         contents:[{parts:[{text:PREVIEW_TEXT}]}],
-         generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:name}}}}
-       })}
-    );
-    const data=await res.json();
-    const audioData=data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if(!audioData)throw new Error('no audio');
-    const bin=atob(audioData),buf=new ArrayBuffer(bin.length),pv=new Uint8Array(buf);
-    for(let i=0;i<bin.length;i++)pv[i]=bin.charCodeAt(i);
-    const url=URL.createObjectURL(pcmToWav(buf));
-    previewAudio=new Audio(url);
-    previewBtn=btn;
+  previewAudio.oncanplay=()=>{
     btn.textContent='■';
+    btn.classList.add('playing');
     previewAudio.play();
-    previewAudio.onended=()=>{btn.textContent='▶';btn.classList.remove('playing');previewAudio=null;previewBtn=null;};
-  }catch(e){
+  };
+  previewAudio.onended=()=>{
     btn.textContent='▶';btn.classList.remove('playing');
-  }
+    previewAudio=null;previewBtn=null;
+  };
+  previewAudio.onerror=()=>{
+    btn.textContent='▶';btn.classList.remove('playing');
+    previewAudio=null;previewBtn=null;
+  };
+  previewAudio.load();
 }
 
 // ── 바이트 미터 ───────────────────────────────────────
